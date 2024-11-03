@@ -1,0 +1,122 @@
+# Windows 11 Compatibility Check Script for Windows 10
+
+# Initialize a variable to hold reasons for incompatibility
+$incompatibilityReasons = @()
+
+function Check-Processor {
+    $processor = Get-WmiObject -Class Win32_Processor
+    if ($processor.MaxClockSpeed -ge 1000 -and $processor.NumberOfCores -ge 2 -and $processor.AddressWidth -eq 64) {
+        Write-Output "Processor meets Windows 11 requirements."
+        return $true
+    } else {
+        $incompatibilityReasons += "Processor: Must be 1 GHz or faster with 2 or more cores on a 64-bit architecture."
+        Write-Output "Processor does not meet Windows 11 requirements."
+        return $false
+    }
+}
+
+function Check-RAM {
+    $ram = (Get-WmiObject -Class Win32_ComputerSystem).TotalPhysicalMemory / 1GB
+    if ($ram -ge 4) {
+        Write-Output "Sufficient RAM: ${ram}GB detected."
+        return $true
+    } else {
+        $incompatibilityReasons += "RAM: At least 4GB is required."
+        Write-Output "Insufficient RAM. At least 4GB is required."
+        return $false
+    }
+}
+
+function Check-Storage {
+    $storage = (Get-PSDrive -Name C).Used / 1GB
+    if ($storage -ge 64) {
+        Write-Output "Sufficient storage space: ${storage}GB available."
+        return $true
+    } else {
+        $incompatibilityReasons += "Storage: At least 64GB is required."
+        Write-Output "Insufficient storage space. At least 64GB is required."
+        return $false
+    }
+}
+
+function Check-TPM {
+    $tpmStatus = Get-WmiObject -Namespace "Root\CIMv2\Security\MicrosoftTpm" -Class Win32_Tpm
+    if ($tpmStatus -and $tpmStatus.SpecVersion -ge "2.0") {
+        Write-Output "TPM version 2.0 or higher detected."
+        return $true
+    } else {
+        $incompatibilityReasons += "TPM: TPM version 2.0 or higher is required."
+        Write-Output "TPM version 2.0 or higher not found."
+        return $false
+    }
+}
+
+function Check-SecureBoot {
+    $secureBoot = Confirm-SecureBootUEFI
+    if ($secureBoot -eq $true) {
+        Write-Output "Secure Boot is enabled."
+        return $true
+    } else {
+        $incompatibilityReasons += "Secure Boot: Secure Boot must be enabled in UEFI."
+        Write-Output "Secure Boot is not enabled."
+        return $false
+    }
+}
+
+function Check-UEFI {
+    $bios = Get-WmiObject -Class Win32_BIOS
+    if ($bios.SMBIOSBIOSVersion -match "UEFI") {
+        Write-Output "System firmware is UEFI."
+        return $true
+    } else {
+        $incompatibilityReasons += "System Firmware: UEFI firmware is required."
+        Write-Output "System firmware is not UEFI."
+        return $false
+    }
+}
+
+function Check-Graphics {
+    $graphics = Get-WmiObject -Class Win32_VideoController
+    if ($graphics.DriverVersion -ge "2.0" -and $graphics.DirectXVersion -ge "12.0") {
+        Write-Output "Graphics card is compatible with DirectX 12 and WDDM 2.0 driver."
+        return $true
+    } else {
+        $incompatibilityReasons += "Graphics Card: Must support DirectX 12 or later with WDDM 2.0 driver."
+        Write-Output "Graphics card does not meet Windows 11 requirements."
+        return $false
+    }
+}
+
+function Check-Display {
+    $screen = Get-WmiObject -Namespace root\wmi -Class WmiMonitorBasicDisplayParams
+    if ($screen.HorizontalImageSize -ge 9 -and $screen.VideoProcessor -match "8 bits") {
+        Write-Output "Display meets Windows 11 requirements."
+        return $true
+    } else {
+        $incompatibilityReasons += "Display: Must have a resolution of 720p or greater, be over 9 inches diagonally, and support 8 bits per color channel."
+        Write-Output "Display does not meet Windows 11 requirements."
+        return $false
+    }
+}
+
+function Check-Compatibility {
+    $processor = Check-Processor
+    $ram = Check-RAM
+    $storage = Check-Storage
+    $tpm = Check-TPM
+    $secureBoot = Check-SecureBoot
+    $uefi = Check-UEFI
+    $graphics = Check-Graphics
+    $display = Check-Display
+
+    if ($processor -and $ram -and $storage -and $tpm -and $secureBoot -and $uefi -and $graphics -and $display) {
+        Write-Output "The system meets the minimum requirements for Windows 11."
+    } else {
+        Write-Output "The system does not meet the minimum requirements for Windows 11."
+        Write-Output "Reasons for incompatibility:"
+        $incompatibilityReasons | ForEach-Object { Write-Output $_ }
+    }
+}
+
+# Run the compatibility check
+Check-Compatibility
